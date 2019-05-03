@@ -126,7 +126,7 @@ func (s *memory) ListHyperParameters(ctx context.Context, modelId, marker string
 	return safeSlice, nil
 }
 
-func (s *memory) GetHyperparameters(ctx context.Context, modelId string, hyperParametersId string) (storage.HyperParameters, error) {
+func (s *memory) GetHyperParameters(ctx context.Context, modelId string, hyperParametersId string) (storage.HyperParameters, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -143,7 +143,7 @@ func (s *memory) AddHyperParameters(ctx context.Context, hyperParameters storage
 		return err
 	}
 
-	if _, err := s.GetHyperparameters(ctx, hyperParameters.ModelId, hyperParameters.HyperParametersId); err == nil {
+	if _, err := s.GetHyperParameters(ctx, hyperParameters.ModelId, hyperParameters.HyperParametersId); err == nil {
 		return storage.HyperParametersExistsError
 	}
 
@@ -163,7 +163,7 @@ func (s *memory) UpdateHyperParameters(ctx context.Context, hyperParameters stor
 		return storage.HyperParameters{}, err
 	}
 
-	if _, err := s.GetHyperparameters(ctx, hyperParameters.ModelId, hyperParameters.HyperParametersId); err != nil {
+	if _, err := s.GetHyperParameters(ctx, hyperParameters.ModelId, hyperParameters.HyperParametersId); err != nil {
 		return storage.HyperParameters{}, err
 	}
 
@@ -195,7 +195,7 @@ func (s *memory) ListCheckpoints(ctx context.Context, modelId, hyperParametersId
 		return nil, err
 	}
 
-	if _, err := s.GetHyperparameters(ctx, modelId, hyperParametersId); err != nil {
+	if _, err := s.GetHyperParameters(ctx, modelId, hyperParametersId); err != nil {
 		return nil, err
 	}
 
@@ -227,7 +227,7 @@ func (s *memory) GetCheckpoint(ctx context.Context, modelId, hyperParametersId, 
 		return storage.Checkpoint{}, err
 	}
 
-	if _, err := s.GetHyperparameters(ctx, modelId, hyperParametersId); err != nil {
+	if _, err := s.GetHyperParameters(ctx, modelId, hyperParametersId); err != nil {
 		return storage.Checkpoint{}, err
 	}
 
@@ -248,7 +248,7 @@ func (s *memory) AddCheckpoint(ctx context.Context, checkpoint storage.Checkpoin
 		return err
 	}
 
-	if _, err := s.GetHyperparameters(ctx, checkpoint.ModelId, checkpoint.HyperParametersId); err != nil {
+	if _, err := s.GetHyperParameters(ctx, checkpoint.ModelId, checkpoint.HyperParametersId); err != nil {
 		return err
 	}
 

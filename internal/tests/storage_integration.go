@@ -154,7 +154,7 @@ func Test_UpdateModels(t *testing.T, store storage.RepositoryStorage) {
 func Test_AddHyperParameters(t *testing.T, store storage.RepositoryStorage) {
 	ctx := context.Background()
 
-	_, err := store.GetHyperparameters(ctx, "model1", "param1")
+	_, err := store.GetHyperParameters(ctx, "model1", "param1")
 	assert.Error(t, err, "Hyperparameter should not exist")
 
 	model := storage.Model{
@@ -164,7 +164,7 @@ func Test_AddHyperParameters(t *testing.T, store storage.RepositoryStorage) {
 	}
 	store.AddModel(ctx, model)
 
-	_, err = store.GetHyperparameters(ctx, "model1", "param1")
+	_, err = store.GetHyperParameters(ctx, "model1", "param1")
 	assert.Error(t, err, "Hyperparameter should not exist")
 
 	params := storage.HyperParameters{

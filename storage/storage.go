@@ -49,7 +49,7 @@ type RepositoryStorage interface {
 	// HYPERPARAMETERS
 
 	ListHyperParameters(ctx context.Context, modelId, marker string, maxItems int) ([]string, error)
-	GetHyperparameters(ctx context.Context, modelId string, hyperParametersId string) (HyperParameters, error)
+	GetHyperParameters(ctx context.Context, modelId string, hyperParametersId string) (HyperParameters, error)
 
 	AddHyperParameters(ctx context.Context, hyperParameters HyperParameters) error
 	UpdateHyperParameters(ctx context.Context, hyperParameters HyperParameters) (HyperParameters, error)

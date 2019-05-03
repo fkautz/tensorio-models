@@ -168,7 +168,7 @@ func (srv *server) GetHyperParameters(ctx context.Context, req *api.GetHyperPara
 	modelID := req.ModelId
 	hyperparametersID := req.HyperParametersId
 	log.Printf("GetHyperParameters request - ModelId: %s, HyperParametersId: %s", modelID, hyperparametersID)
-	storedHyperparameters, err := srv.storage.GetHyperparameters(ctx, modelID, hyperparametersID)
+	storedHyperparameters, err := srv.storage.GetHyperParameters(ctx, modelID, hyperparametersID)
 	if err != nil {
 		log.Printf("ERROR: %v", err)
 		message := fmt.Sprintf("Could not get hyperparameters (%s) for model (%s) from storage", hyperparametersID, modelID)
@@ -192,7 +192,7 @@ func (srv *server) UpdateHyperParameters(ctx context.Context, req *api.UpdateHyp
 	hyperparameters := req.HyperParameters
 	log.Printf("UpdateHyperParameters request - ModelId: %s, HyperParametersId: %s, CanonicalCheckpoint: %s, HyperParameters: %v", modelID, hyperparametersID, canonicalCheckpoint, hyperparameters)
 
-	existingHyperparameters, err := srv.storage.GetHyperparameters(ctx, modelID, hyperparametersID)
+	existingHyperparameters, err := srv.storage.GetHyperParameters(ctx, modelID, hyperparametersID)
 	if err != nil {
 		log.Printf("ERROR: %v", err)
 		message := fmt.Sprintf("Could not get hyperparameters (%s) for model (%s) from storage", hyperparametersID, modelID)
