@@ -181,7 +181,7 @@ func TestUpdateModel(t *testing.T) {
 	assert.Equal(t, updateModelRequest.Model, updateModelResponse.Model, "UpdateModel models in request and response do not agree")
 }
 
-func TestUnknownModelUpdate(t *testing.T) {
+func TestMissingModelInHyperparameterUpdate(t *testing.T) {
 	srv := testingServer()
 
 	model := &api.CreateModelRequest{
