@@ -181,6 +181,28 @@ func TestUpdateModel(t *testing.T) {
 	assert.Equal(t, updateModelRequest.Model, updateModelResponse.Model, "UpdateModel models in request and response do not agree")
 }
 
+func TestUnknownModelUpdate(t *testing.T) {
+	srv := testingServer()
+
+	model := &api.CreateModelRequest{
+		Model: &api.Model{
+			ModelId:     "test-model",
+			Description: "This is a test",
+		},
+	}
+
+	srv.CreateModel(context.Background(), model)
+
+	updateModelRequest := &api.UpdateModelRequest{
+		ModelId: "test-model",
+		Model:   nil,
+	}
+
+	updateModelResponse, err := srv.UpdateModel(context.Background(), updateModelRequest)
+	assert.Nil(t, updateModelResponse)
+	assert.Error(t, err)
+}
+
 // Creates a model and tests that GetModel returns the expected information
 func TestGetModel(t *testing.T) {
 	srv := testingServer()

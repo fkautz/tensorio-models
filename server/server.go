@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/doc-ai/tensorio-models/api"
@@ -88,6 +89,9 @@ func (srv *server) CreateModel(ctx context.Context, req *api.CreateModelRequest)
 func (srv *server) UpdateModel(ctx context.Context, req *api.UpdateModelRequest) (*api.UpdateModelResponse, error) {
 	modelID := req.ModelId
 	model := req.Model
+	if model == nil {
+		return nil, errors.New("model is missing")
+	}
 	log.Printf("UpdateModel request - ModelId: %s, Model: %v", modelID, model)
 	storedModel, err := srv.storage.GetModel(ctx, modelID)
 	if err != nil {
