@@ -581,7 +581,7 @@
         "modelId": {
           "type": "string"
         },
-        "description": {
+        "details": {
           "type": "string"
         },
         "canonicalHyperparameters": {

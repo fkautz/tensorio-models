@@ -86,8 +86,8 @@ func (s *memory) UpdateModel(ctx context.Context, model storage.Model) (storage.
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if strings.TrimSpace(model.Description) != "" {
-		currentModel.Description = model.Description
+	if strings.TrimSpace(model.Details) != "" {
+		currentModel.Details = model.Details
 	}
 	if strings.TrimSpace(model.CanonicalHyperparameters) != "" {
 		currentModel.CanonicalHyperparameters = model.CanonicalHyperparameters

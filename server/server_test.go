@@ -27,11 +27,11 @@ func TestCreateModelAndListModels(t *testing.T) {
 	modelRequests := make([]api.CreateModelRequest, 5)
 	for i := range modelRequests {
 		modelID := fmt.Sprintf("test-model-%d", i)
-		description := fmt.Sprintf("This is test model %d", i)
+		details := fmt.Sprintf("This is test model %d", i)
 		model := api.CreateModelRequest{
 			Model: &api.Model{
-				ModelId:     modelID,
-				Description: description,
+				ModelId: modelID,
+				Details: details,
 			},
 		}
 		modelRequests[i] = model
@@ -74,11 +74,11 @@ func TestListModels(t *testing.T) {
 	modelRequests := make([]api.CreateModelRequest, 21)
 	for i := range modelRequests {
 		modelID := fmt.Sprintf("test-model-%d", i)
-		description := fmt.Sprintf("This is test model %d", i)
+		details := fmt.Sprintf("This is test model %d", i)
 		model := api.CreateModelRequest{
 			Model: &api.Model{
-				ModelId:     modelID,
-				Description: description,
+				ModelId: modelID,
+				Details: details,
 			},
 		}
 		modelRequests[i] = model
@@ -174,8 +174,8 @@ func TestUpdateModel(t *testing.T) {
 
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     "test-model",
-			Description: "This is a test",
+			ModelId: "test-model",
+			Details: "This is a test",
 		},
 	}
 
@@ -189,8 +189,8 @@ func TestUpdateModel(t *testing.T) {
 	updateModelRequest := api.UpdateModelRequest{
 		ModelId: model.Model.ModelId,
 		Model: &api.Model{
-			ModelId:     "test-model",
-			Description: "This is only a test",
+			ModelId: "test-model",
+			Details: "This is only a test",
 		},
 	}
 	updateModelResponse, err := srv.UpdateModel(ctx, &updateModelRequest)
@@ -205,8 +205,8 @@ func TestMissingModelInHyperparameterUpdate(t *testing.T) {
 
 	model := &api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     "test-model",
-			Description: "This is a test",
+			ModelId: "test-model",
+			Details: "This is a test",
 		},
 	}
 
@@ -228,8 +228,8 @@ func TestGetModel(t *testing.T) {
 
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     "test-model",
-			Description: "This is a test",
+			ModelId: "test-model",
+			Details: "This is a test",
 		},
 	}
 	ctx := context.Background()
@@ -254,8 +254,8 @@ func TestCreateAndListHyperparameters(t *testing.T) {
 	modelID := "test-model"
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     modelID,
-			Description: "This is a test",
+			ModelId: modelID,
+			Details: "This is a test",
 		},
 	}
 	ctx := context.Background()
@@ -308,8 +308,8 @@ func TestListHyperparameters(t *testing.T) {
 	modelID := "test-model"
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     modelID,
-			Description: "This is a test",
+			ModelId: modelID,
+			Details: "This is a test",
 		},
 	}
 	ctx := context.Background()
@@ -439,8 +439,8 @@ func TestUpdateHyperparameters(t *testing.T) {
 	modelID := "test-model"
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     modelID,
-			Description: "This is a test",
+			ModelId: modelID,
+			Details: "This is a test",
 		},
 	}
 	ctx := context.Background()
@@ -503,8 +503,8 @@ func TestGetHyperparameters(t *testing.T) {
 	modelID := "test-model"
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     modelID,
-			Description: "This is a test",
+			ModelId: modelID,
+			Details: "This is a test",
 		},
 	}
 	ctx := context.Background()
@@ -548,8 +548,8 @@ func TestCreateAndListCheckpoints(t *testing.T) {
 	modelID := "test-model"
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     modelID,
-			Description: "This is a test",
+			ModelId: modelID,
+			Details: "This is a test",
 		},
 	}
 	ctx := context.Background()
@@ -621,8 +621,8 @@ func TestListCheckpoints(t *testing.T) {
 	modelID := "test-model"
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     modelID,
-			Description: "This is a test",
+			ModelId: modelID,
+			Details: "This is a test",
 		},
 	}
 	ctx := context.Background()
@@ -780,8 +780,8 @@ func TestGetCheckpoint(t *testing.T) {
 	modelID := "test-model"
 	model := api.CreateModelRequest{
 		Model: &api.Model{
-			ModelId:     modelID,
-			Description: "This is a test",
+			ModelId: modelID,
+			Details: "This is a test",
 		},
 	}
 	ctx := context.Background()

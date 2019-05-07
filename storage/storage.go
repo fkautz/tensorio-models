@@ -17,7 +17,7 @@ var CheckpointExistsError = errors.New("Checkpoint already exists")
 
 type Model struct {
 	ModelId                  string
-	Description              string
+	Details                  string
 	CanonicalHyperparameters string
 }
 

@@ -18,7 +18,7 @@ func Test_AddModel(t *testing.T, store storage.RepositoryStorage) {
 
 	model := storage.Model{
 		ModelId:                  "add_model",
-		Description:              "description of a model",
+		Details:                  "details of a model",
 		CanonicalHyperparameters: "canonical hyper params",
 	}
 
@@ -33,7 +33,7 @@ func Test_AddModel(t *testing.T, store storage.RepositoryStorage) {
 
 	model2 := storage.Model{
 		ModelId:                  "add_model2",
-		Description:              "description of a model",
+		Details:                  "details of a model",
 		CanonicalHyperparameters: "canonical hyper params",
 	}
 
@@ -65,7 +65,7 @@ func Test_ListModels(t *testing.T, store storage.RepositoryStorage) {
 
 	model := storage.Model{
 		ModelId:                  "model1",
-		Description:              "description of a model",
+		Details:                  "details of a model",
 		CanonicalHyperparameters: "canonical hyper params",
 	}
 	store.AddModel(ctx, model)
@@ -118,7 +118,7 @@ func Test_UpdateModels(t *testing.T, store storage.RepositoryStorage) {
 	// test no model exists
 	model := storage.Model{
 		ModelId:                  "model1",
-		Description:              "old description",
+		Details:                  "old detail",
 		CanonicalHyperparameters: "old canonical",
 	}
 	_, err := store.UpdateModel(ctx, model)
@@ -130,7 +130,7 @@ func Test_UpdateModels(t *testing.T, store storage.RepositoryStorage) {
 	// update model
 	modelUpdate := storage.Model{
 		ModelId:                  "model1",
-		Description:              "",
+		Details:                  "",
 		CanonicalHyperparameters: "",
 	}
 	updatedModel, err := store.UpdateModel(ctx, modelUpdate)
@@ -141,7 +141,7 @@ func Test_UpdateModels(t *testing.T, store storage.RepositoryStorage) {
 
 	modelUpdate = storage.Model{
 		ModelId:                  "model1",
-		Description:              "new description",
+		Details:                  "new detail",
 		CanonicalHyperparameters: "new canonical",
 	}
 	updatedModel, err = store.UpdateModel(ctx, modelUpdate)
@@ -159,7 +159,7 @@ func Test_AddHyperparameters(t *testing.T, store storage.RepositoryStorage) {
 
 	model := storage.Model{
 		ModelId:                  "model1",
-		Description:              "description1",
+		Details:                  "detail1",
 		CanonicalHyperparameters: "canonical1",
 	}
 	store.AddModel(ctx, model)
@@ -195,7 +195,7 @@ func Test_ListHyperparams(t *testing.T, store storage.RepositoryStorage) {
 
 	model := storage.Model{
 		ModelId:                  "model1",
-		Description:              "description1",
+		Details:                  "detail1",
 		CanonicalHyperparameters: "canonical1",
 	}
 	store.AddModel(ctx, model)
@@ -254,7 +254,7 @@ func Test_UpdateHyperparams(t *testing.T, store storage.RepositoryStorage) {
 
 	model := storage.Model{
 		ModelId:                  "model1",
-		Description:              "desc",
+		Details:                  "desc",
 		CanonicalHyperparameters: "canon",
 	}
 
@@ -319,7 +319,7 @@ func Test_AddCheckpoint(t *testing.T, store storage.RepositoryStorage) {
 
 	model1 := storage.Model{
 		ModelId:                  "model1",
-		Description:              "desc",
+		Details:                  "desc",
 		CanonicalHyperparameters: "canon",
 	}
 	store.AddModel(ctx, model1)
@@ -361,7 +361,7 @@ func Test_ListCheckpoints(t *testing.T, store storage.RepositoryStorage) {
 
 	model1 := storage.Model{
 		ModelId:                  "model1",
-		Description:              "desc",
+		Details:                  "desc",
 		CanonicalHyperparameters: "canon",
 	}
 	store.AddModel(ctx, model1)

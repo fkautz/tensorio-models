@@ -61,7 +61,7 @@ func (srv *server) GetModel(ctx context.Context, req *api.GetModelRequest) (*api
 	}
 	respModel := api.Model{
 		ModelId:                  model.ModelId,
-		Description:              model.Description,
+		Details:                  model.Details,
 		CanonicalHyperparameters: model.CanonicalHyperparameters,
 	}
 	resp := &api.GetModelResponse{
@@ -75,7 +75,7 @@ func (srv *server) CreateModel(ctx context.Context, req *api.CreateModelRequest)
 	log.Printf("CreateModel request - Model: %v", model)
 	storageModel := storage.Model{
 		ModelId:                  model.ModelId,
-		Description:              model.Description,
+		Details:                  model.Details,
 		CanonicalHyperparameters: model.CanonicalHyperparameters,
 	}
 	err := srv.storage.AddModel(ctx, storageModel)
@@ -104,8 +104,8 @@ func (srv *server) UpdateModel(ctx context.Context, req *api.UpdateModelRequest)
 		return nil, grpcErr
 	}
 	updatedModel := storedModel
-	if model.Description != "" {
-		updatedModel.Description = model.Description
+	if model.Details != "" {
+		updatedModel.Details = model.Details
 	}
 	if model.CanonicalHyperparameters != "" {
 		updatedModel.CanonicalHyperparameters = model.CanonicalHyperparameters
@@ -120,7 +120,7 @@ func (srv *server) UpdateModel(ctx context.Context, req *api.UpdateModelRequest)
 	resp := &api.UpdateModelResponse{
 		Model: &api.Model{
 			ModelId:                  newlyStoredModel.ModelId,
-			Description:              newlyStoredModel.Description,
+			Details:                  newlyStoredModel.Details,
 			CanonicalHyperparameters: newlyStoredModel.CanonicalHyperparameters,
 		},
 	}

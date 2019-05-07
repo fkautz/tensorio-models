@@ -28,7 +28,7 @@ message HealthCheckResponse {
 
 message Model {
     string modelId = 1;
-    string description = 2;
+    string details = 2;
     string canonicalHyperparameters=3;
 }
 
