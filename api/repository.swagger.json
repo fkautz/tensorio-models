@@ -556,6 +556,9 @@
     "apiListHyperparametersResponse": {
       "type": "object",
       "properties": {
+        "modelId": {
+          "type": "string"
+        },
         "hyperparametersIds": {
           "type": "array",
           "items": {

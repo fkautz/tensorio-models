@@ -427,6 +427,7 @@ func TestListHyperparameters(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
+		assert.Equal(t, test.ModelId, listHyperparametersResponse.ModelId)
 		assert.Equalf(t, test.ExpectedHyperparametersIds, listHyperparametersResponse.HyperparametersIds, "TestListHyperparameters %d: ListHyperparameters request returned incorrect HyperparametersIds", i)
 	}
 }

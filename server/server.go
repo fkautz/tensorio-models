@@ -143,6 +143,7 @@ func (srv *server) ListHyperparameters(ctx context.Context, req *api.ListHyperpa
 		return nil, grpcErr
 	}
 	resp := &api.ListHyperparametersResponse{
+		ModelId:            modelID,
 		HyperparametersIds: hyperparametersIDs,
 	}
 	return resp, nil

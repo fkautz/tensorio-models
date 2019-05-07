@@ -73,7 +73,8 @@ message ListHyperparametersRequest {
 }
 
 message ListHyperparametersResponse {
-    repeated string hyperparametersIds = 1;
+    string modelId = 1;
+    repeated string hyperparametersIds = 2;
 }
 
 message CreateHyperparametersRequest {
