@@ -6,14 +6,14 @@ import (
 	"time"
 )
 
-var ModelDoesNotExistError = errors.New("Model does not exist")
-var ModelExistsError = errors.New("Model already exists")
+var ModelDoesNotExistError = errors.New("model does not exist")
+var ModelExistsError = errors.New("model already exists")
 
-var HyperparametersDoesNotExistError = errors.New("Hyperparameters does not exist")
-var HyperparametersExistsError = errors.New("Hyperparameters already exists")
+var HyperparametersDoesNotExistError = errors.New("hyperparameters does not exist")
+var HyperparametersExistsError = errors.New("hyperparameters already exists")
 
-var CheckpointDoesNotExistError = errors.New("Checkpoint does not exist")
-var CheckpointExistsError = errors.New("Checkpoint already exists")
+var CheckpointDoesNotExistError = errors.New("checkpoint does not exist")
+var CheckpointExistsError = errors.New("checkpoint already exists")
 
 type Model struct {
 	ModelId                  string

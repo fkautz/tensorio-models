@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/doc-ai/tensorio-models/storage"
+	"github.com/doc-ai/tensorio-models/trace"
+	"github.com/opentracing/opentracing-go"
+	otlog "github.com/opentracing/opentracing-go/log"
 	"sort"
 	"strings"
 	"sync"
@@ -38,6 +41,12 @@ func NewMemoryRepositoryStorage() storage.RepositoryStorage {
 }
 
 func (s *memory) ListModels(ctx context.Context, marker string, maxItems int) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.ListModels")
+	defer span.Finish()
+
+	span.SetTag(trace.Marker, marker)
+	span.SetTag(trace.MaxItems, maxItems)
+
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	firstIndex := sort.SearchStrings(s.modelList, marker)
@@ -65,22 +74,39 @@ func (s *memory) ListModels(ctx context.Context, marker string, maxItems int) ([
 	safeSlice := make([]string, len(unsafeSlice))
 	copy(safeSlice, unsafeSlice)
 
+	span.LogFields(otlog.Int(trace.ItemsReturnedCount, len(safeSlice)))
+
 	return safeSlice, nil
 }
 
 func (s *memory) GetModel(ctx context.Context, modelId string) (storage.Model, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.GetModel")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, modelId)
+
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	model, ok := s.models[modelId]
 	if ok {
 		return model, nil
 	}
-	return model, storage.ModelDoesNotExistError
+
+	err := storage.ModelDoesNotExistError
+	span.LogFields(otlog.Error(err))
+
+	return model, err
 }
 
 func (s *memory) AddModel(ctx context.Context, model storage.Model) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.AddModel")
+	defer span.Finish()
+	span.SetTag(trace.ModelID, model.ModelId)
+
 	if _, err := s.GetModel(ctx, model.ModelId); err == nil {
-		return storage.ModelExistsError
+		err := storage.ModelExistsError
+		span.LogFields(otlog.Error(err))
+		return err
 	}
 
 	s.lock.Lock()
@@ -92,9 +118,15 @@ func (s *memory) AddModel(ctx context.Context, model storage.Model) error {
 }
 
 func (s *memory) UpdateModel(ctx context.Context, model storage.Model) (storage.Model, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.UpdateModel")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, model.ModelId)
+
 	var currentModel storage.Model
 	var err error
 	if currentModel, err = s.GetModel(ctx, model.ModelId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return storage.Model{}, err
 	}
 
@@ -114,7 +146,15 @@ func (s *memory) UpdateModel(ctx context.Context, model storage.Model) (storage.
 }
 
 func (s *memory) ListHyperparameters(ctx context.Context, modelId, marker string, maxItems int) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.ListHyperparameters")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, modelId)
+	span.SetTag(trace.Marker, marker)
+	span.SetTag(trace.MaxItems, maxItems)
+
 	if _, err := s.GetModel(ctx, modelId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return nil, err
 	}
 
@@ -153,10 +193,18 @@ func (s *memory) ListHyperparameters(ctx context.Context, modelId, marker string
 		}
 	}
 
+	span.LogFields(otlog.Int(trace.ItemsReturnedCount, len(safeSlice)))
+
 	return safeSlice, nil
 }
 
 func (s *memory) GetHyperparameters(ctx context.Context, modelId string, hyperparametersId string) (storage.Hyperparameters, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.GetHyperparameters")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, modelId)
+	span.SetTag(trace.HyperparametersID, hyperparametersId)
+
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -165,16 +213,27 @@ func (s *memory) GetHyperparameters(ctx context.Context, modelId string, hyperpa
 		return hyperparameters, nil
 	}
 
-	return storage.Hyperparameters{}, storage.HyperparametersDoesNotExistError
+	err := storage.HyperparametersDoesNotExistError
+	span.LogFields(otlog.Error(err))
+	return storage.Hyperparameters{}, err
 }
 
 func (s *memory) AddHyperparameters(ctx context.Context, hyperparameters storage.Hyperparameters) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.AddHyperparameters")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, hyperparameters.ModelId)
+	span.SetTag(trace.HyperparametersID, hyperparameters.HyperparametersId)
+
 	if _, err := s.GetModel(ctx, hyperparameters.ModelId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return err
 	}
 
 	if _, err := s.GetHyperparameters(ctx, hyperparameters.ModelId, hyperparameters.HyperparametersId); err == nil {
-		return storage.HyperparametersExistsError
+		err := storage.HyperparametersExistsError
+		span.LogFields(otlog.Error(err))
+		return err
 	}
 
 	s.lock.Lock()
@@ -189,11 +248,19 @@ func (s *memory) AddHyperparameters(ctx context.Context, hyperparameters storage
 }
 
 func (s *memory) UpdateHyperparameters(ctx context.Context, hyperparameters storage.Hyperparameters) (storage.Hyperparameters, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.UpdateHyperparameters")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, hyperparameters.ModelId)
+	span.SetTag(trace.HyperparametersID, hyperparameters.HyperparametersId)
+
 	if _, err := s.GetModel(ctx, hyperparameters.ModelId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return storage.Hyperparameters{}, err
 	}
 
 	if _, err := s.GetHyperparameters(ctx, hyperparameters.ModelId, hyperparameters.HyperparametersId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return storage.Hyperparameters{}, err
 	}
 
@@ -226,11 +293,21 @@ func (s *memory) UpdateHyperparameters(ctx context.Context, hyperparameters stor
 }
 
 func (s *memory) ListCheckpoints(ctx context.Context, modelId, hyperparametersId, marker string, maxItems int) ([]string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.ListCheckpoints")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, modelId)
+	span.SetTag(trace.HyperparametersID, hyperparametersId)
+	span.SetTag(trace.Marker, marker)
+	span.SetTag(trace.MaxItems, maxItems)
+
 	if _, err := s.GetModel(ctx, modelId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return nil, err
 	}
 
 	if _, err := s.GetHyperparameters(ctx, modelId, hyperparametersId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return nil, err
 	}
 
@@ -268,15 +345,26 @@ func (s *memory) ListCheckpoints(ctx context.Context, modelId, hyperparametersId
 		}
 	}
 
+	span.LogFields(otlog.Int(trace.ItemsReturnedCount, len(safeSlice)))
+
 	return safeSlice, nil
 }
 
 func (s *memory) GetCheckpoint(ctx context.Context, modelId, hyperparametersId, checkpointId string) (storage.Checkpoint, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.GetCheckpoint")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, modelId)
+	span.SetTag(trace.HyperparametersID, hyperparametersId)
+	span.SetTag(trace.CheckpointID, checkpointId)
+
 	if _, err := s.GetModel(ctx, modelId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return storage.Checkpoint{}, err
 	}
 
 	if _, err := s.GetHyperparameters(ctx, modelId, hyperparametersId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return storage.Checkpoint{}, err
 	}
 
@@ -289,20 +377,34 @@ func (s *memory) GetCheckpoint(ctx context.Context, modelId, hyperparametersId, 
 		return checkpoint, nil
 	}
 
-	return storage.Checkpoint{}, storage.CheckpointDoesNotExistError
+	err := storage.CheckpointDoesNotExistError
+	span.LogFields(otlog.Error(err))
+
+	return storage.Checkpoint{}, err
 }
 
 func (s *memory) AddCheckpoint(ctx context.Context, checkpoint storage.Checkpoint) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "memory.AddCheckpoint")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, checkpoint.ModelId)
+	span.SetTag(trace.HyperparametersID, checkpoint.HyperparametersId)
+	span.SetTag(trace.CheckpointID, checkpoint.CheckpointId)
+
 	if _, err := s.GetModel(ctx, checkpoint.ModelId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return err
 	}
 
 	if _, err := s.GetHyperparameters(ctx, checkpoint.ModelId, checkpoint.HyperparametersId); err != nil {
+		span.LogFields(otlog.Error(err))
 		return err
 	}
 
 	if _, err := s.GetCheckpoint(ctx, checkpoint.ModelId, checkpoint.HyperparametersId, checkpoint.CheckpointId); err == nil {
-		return storage.CheckpointExistsError
+		err := storage.CheckpointExistsError
+		span.LogFields(otlog.Error(err))
+		return err
 	}
 
 	s.lock.Lock()

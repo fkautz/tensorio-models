@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"github.com/doc-ai/tensorio-models/api"
 	"github.com/doc-ai/tensorio-models/storage"
+	"github.com/doc-ai/tensorio-models/trace"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/opentracing/opentracing-go"
+	otlog "github.com/opentracing/opentracing-go/log"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strconv"
 	"time"
 )
 
@@ -23,7 +27,8 @@ func NewServer(storage storage.RepositoryStorage) api.RepositoryServer {
 }
 
 func (srv *server) Healthz(ctx context.Context, req *api.HealthCheckRequest) (*api.HealthCheckResponse, error) {
-	log.Println(req)
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.Healthz")
+	defer span.Finish()
 	resp := &api.HealthCheckResponse{
 		Status: 1,
 	}
@@ -31,32 +36,48 @@ func (srv *server) Healthz(ctx context.Context, req *api.HealthCheckRequest) (*a
 }
 
 func (srv *server) ListModels(ctx context.Context, req *api.ListModelsRequest) (*api.ListModelsResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.ListModels")
+	defer span.Finish()
+
+	span.SetTag(trace.Marker, req.Marker)
+	span.SetTag(trace.MaxItems, req.MaxItems)
+
 	marker := req.Marker
 	maxItems := int(req.MaxItems)
 	if maxItems <= 0 {
 		maxItems = 10
 	}
-	log.Printf("ListModels request - Marker: %s, MaxItems: %d", marker, maxItems)
 	models, err := srv.storage.ListModels(ctx, marker, maxItems)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.LogFields(otlog.Error(err))
+		span.SetTag("error", true)
 		grpcErr := status.Error(codes.Unavailable, "Could not retrieve models from storage")
 		return nil, grpcErr
 	}
 	res := &api.ListModelsResponse{
 		ModelIds: models,
 	}
+
+	span.LogFields(otlog.String(trace.ItemsReturnedCount, strconv.Itoa(len(models))))
+
 	return res, nil
 }
 
 func (srv *server) GetModel(ctx context.Context, req *api.GetModelRequest) (*api.GetModelResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.GetModel")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+
 	modelID := req.ModelId
-	log.Printf("GetModel request - ModelId: %s", modelID)
 	model, err := srv.storage.GetModel(ctx, modelID)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.LogFields(otlog.Error(err))
+		span.SetTag(trace.Error, true)
+
 		message := fmt.Sprintf("Cloud not retrieve model (%s) from storage", modelID)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 	respModel := api.Model{
@@ -71,6 +92,11 @@ func (srv *server) GetModel(ctx context.Context, req *api.GetModelRequest) (*api
 }
 
 func (srv *server) CreateModel(ctx context.Context, req *api.CreateModelRequest) (*api.CreateModelResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.CreateModel")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.Model.ModelId)
+
 	model := req.Model
 	log.Printf("CreateModel request - Model: %v", model)
 	storageModel := storage.Model{
@@ -80,8 +106,15 @@ func (srv *server) CreateModel(ctx context.Context, req *api.CreateModelRequest)
 	}
 	err := srv.storage.AddModel(ctx, storageModel)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
-		grpcErr := status.Error(codes.Unavailable, "Could not store model")
+		span.LogFields(otlog.Error(err))
+		span.SetTag(trace.Error, true)
+
+		var grpcErr error
+		if err == storage.ModelExistsError {
+			grpcErr = status.Error(codes.AlreadyExists, fmt.Sprintf("model (%s) already exists", req.Model.ModelId))
+		} else {
+			grpcErr = status.Error(codes.Internal, "could not store model")
+		}
 		return nil, grpcErr
 	}
 	resourcePath := fmt.Sprintf("/models/%s", storageModel.ModelId)
@@ -90,13 +123,38 @@ func (srv *server) CreateModel(ctx context.Context, req *api.CreateModelRequest)
 }
 
 func (srv *server) UpdateModel(ctx context.Context, req *api.UpdateModelRequest) (*api.UpdateModelResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.UpdateModel")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+
 	modelID := req.ModelId
 	model := req.Model
 	if modelID == "" {
-		return nil, api.MissingRequiredFieldError("modelId", "model id to update").Err()
+		err := api.MissingRequiredFieldError("modelId", "model id to update").Err()
+
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
+		return nil, err
 	}
 	if model == nil {
-		return nil, api.MissingRequiredFieldError("model", "model to update").Err()
+		err := api.MissingRequiredFieldError("model", "model to update").Err()
+
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
+		return nil, err
+	}
+	if req.Model.ModelId != "" {
+		if req.ModelId != req.Model.ModelId {
+			err := api.InvalidFieldValueError("request.model.modelId", "request.modelId != request.model.modelId").Err()
+
+			span.SetTag(trace.Error, true)
+			span.LogFields(otlog.Error(err))
+
+			return nil, err
+		}
 	}
 	if req.Model.ModelId != "" {
 		if req.ModelId != req.Model.ModelId {
@@ -106,9 +164,12 @@ func (srv *server) UpdateModel(ctx context.Context, req *api.UpdateModelRequest)
 	log.Printf("UpdateModel request - ModelId: %s, Model: %v", modelID, model)
 	storedModel, err := srv.storage.GetModel(ctx, modelID)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
-		message := fmt.Sprintf("Cloud not retrieve model (%s) from storage", modelID)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
+		message := fmt.Sprintf("Could not retrieve model (%s) from storage", modelID)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 	updatedModel := storedModel
@@ -120,9 +181,12 @@ func (srv *server) UpdateModel(ctx context.Context, req *api.UpdateModelRequest)
 	}
 	newlyStoredModel, err := srv.storage.UpdateModel(ctx, updatedModel)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
-		message := fmt.Sprintf("Cloud not update model (%s) in storage", modelID)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
+		message := fmt.Sprintf("Could not update model (%s) in storage", modelID)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 	resp := &api.UpdateModelResponse{
@@ -136,6 +200,13 @@ func (srv *server) UpdateModel(ctx context.Context, req *api.UpdateModelRequest)
 }
 
 func (srv *server) ListHyperparameters(ctx context.Context, req *api.ListHyperparametersRequest) (*api.ListHyperparametersResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.ListHyperparameters")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+	span.SetTag(trace.Marker, req.Marker)
+	span.SetTag(trace.MaxItems, req.MaxItems)
+
 	modelID := req.ModelId
 	marker := req.Marker
 	maxItems := int(req.MaxItems)
@@ -145,9 +216,12 @@ func (srv *server) ListHyperparameters(ctx context.Context, req *api.ListHyperpa
 	log.Printf("ListHyperparameters request - ModelId: %s, Marker: %s, MaxItems: %d", modelID, marker, maxItems)
 	hyperparametersIDs, err := srv.storage.ListHyperparameters(ctx, modelID, marker, maxItems)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
 		message := fmt.Sprintf("Could not list hyperparameters for model (%s) in storage", modelID)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 	resp := &api.ListHyperparametersResponse{
@@ -158,11 +232,16 @@ func (srv *server) ListHyperparameters(ctx context.Context, req *api.ListHyperpa
 }
 
 func (srv *server) CreateHyperparameters(ctx context.Context, req *api.CreateHyperparametersRequest) (*api.CreateHyperparametersResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.CreateHyperparameters")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+	span.SetTag(trace.HyperparametersID, req.HyperparametersId)
+
 	modelID := req.ModelId
 	hyperparametersID := req.HyperparametersId
 	canonicalCheckpoint := req.CanonicalCheckpoint
 	hyperparameters := req.Hyperparameters
-	log.Printf("CreateHyperparameters request - ModelId: %s, HyperparametersId: %s, CanonicalCheckpoint: %s, Hyperparameters: %v", modelID, hyperparametersID, canonicalCheckpoint, hyperparameters)
 	storageHyperparameters := storage.Hyperparameters{
 		ModelId:             modelID,
 		HyperparametersId:   hyperparametersID,
@@ -171,9 +250,12 @@ func (srv *server) CreateHyperparameters(ctx context.Context, req *api.CreateHyp
 	}
 	err := srv.storage.AddHyperparameters(ctx, storageHyperparameters)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
 		message := fmt.Sprintf("Could not store hyperparameters (%v) in storage", storageHyperparameters)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 	resourcePath := fmt.Sprintf("/models/%s/hyperparameters/%s", modelID, hyperparametersID)
@@ -184,14 +266,22 @@ func (srv *server) CreateHyperparameters(ctx context.Context, req *api.CreateHyp
 }
 
 func (srv *server) GetHyperparameters(ctx context.Context, req *api.GetHyperparametersRequest) (*api.GetHyperparametersResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.GetHyperparameters")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+	span.SetTag(trace.HyperparametersID, req.HyperparametersId)
+
 	modelID := req.ModelId
 	hyperparametersID := req.HyperparametersId
-	log.Printf("GetHyperparameters request - ModelId: %s, HyperparametersId: %s", modelID, hyperparametersID)
 	storedHyperparameters, err := srv.storage.GetHyperparameters(ctx, modelID, hyperparametersID)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
 		message := fmt.Sprintf("Could not get hyperparameters (%s) for model (%s) from storage", hyperparametersID, modelID)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 	resp := &api.GetHyperparametersResponse{
@@ -205,18 +295,26 @@ func (srv *server) GetHyperparameters(ctx context.Context, req *api.GetHyperpara
 }
 
 func (srv *server) UpdateHyperparameters(ctx context.Context, req *api.UpdateHyperparametersRequest) (*api.UpdateHyperparametersResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.UpdateHyperparameters")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+	span.SetTag(trace.HyperparametersID, req.HyperparametersId)
+
 	modelID := req.ModelId
 	hyperparametersID := req.HyperparametersId
 	upgradeTo := req.UpgradeTo
 	canonicalCheckpoint := req.CanonicalCheckpoint
 	hyperparameters := req.Hyperparameters
-	log.Printf("UpdateHyperparameters request - ModelId: %s, HyperparametersId: %s, CanonicalCheckpoint: %s, Hyperparameters: %v", modelID, hyperparametersID, canonicalCheckpoint, hyperparameters)
 
 	existingHyperparameters, err := srv.storage.GetHyperparameters(ctx, modelID, hyperparametersID)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
 		message := fmt.Sprintf("Could not get hyperparameters (%s) for model (%s) from storage", hyperparametersID, modelID)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 
@@ -232,7 +330,8 @@ func (srv *server) UpdateHyperparameters(ctx context.Context, req *api.UpdateHyp
 	}
 	storedHyperparameters, err := srv.storage.UpdateHyperparameters(ctx, updatedHyperparameters)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
 		message := fmt.Sprintf("Could not store hyperparameters (%v) in storage", updatedHyperparameters)
 		grpcErr := status.Error(codes.Unavailable, message)
 		return nil, grpcErr
@@ -249,6 +348,14 @@ func (srv *server) UpdateHyperparameters(ctx context.Context, req *api.UpdateHyp
 }
 
 func (srv *server) ListCheckpoints(ctx context.Context, req *api.ListCheckpointsRequest) (*api.ListCheckpointsResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.ListCheckpoints")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+	span.SetTag(trace.HyperparametersID, req.HyperparametersId)
+	span.SetTag(trace.Marker, req.Marker)
+	span.SetTag(trace.MaxItems, req.MaxItems)
+
 	modelID := req.ModelId
 	hyperparametersID := req.HyperparametersId
 	marker := req.Marker
@@ -256,12 +363,14 @@ func (srv *server) ListCheckpoints(ctx context.Context, req *api.ListCheckpoints
 	if maxItems <= 0 {
 		maxItems = 10
 	}
-	log.Printf("ListCheckpoints request - ModelId: %s, HyperparametersId: %s, Marker: %s, MaxItems: %d", modelID, hyperparametersID, marker, maxItems)
 	checkpointIDs, err := srv.storage.ListCheckpoints(ctx, modelID, hyperparametersID, marker, maxItems)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
 		message := fmt.Sprintf("Could not list checkpoints for model (%s) and hyperparameters (%s) in storage", modelID, hyperparametersID)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 	resp := &api.ListCheckpointsResponse{
@@ -271,11 +380,18 @@ func (srv *server) ListCheckpoints(ctx context.Context, req *api.ListCheckpoints
 }
 
 func (srv *server) CreateCheckpoint(ctx context.Context, req *api.CreateCheckpointRequest) (*api.CreateCheckpointResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.CreateCheckpoint")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+	span.SetTag(trace.HyperparametersID, req.HyperparametersId)
+	span.SetTag(trace.Marker, req.CheckpointId)
+
 	modelID := req.ModelId
 	hyperparametersID := req.HyperparametersId
 	checkpointID := req.CheckpointId
 	link := req.Link
-	log.Printf("CreateCheckpoint request - ModelId: %s, HyperparametersId: %s, CheckpointId: %s, Link: %s", modelID, hyperparametersID, checkpointID, link)
+
 	storageCheckpoint := storage.Checkpoint{
 		ModelId:           modelID,
 		HyperparametersId: hyperparametersID,
@@ -284,44 +400,67 @@ func (srv *server) CreateCheckpoint(ctx context.Context, req *api.CreateCheckpoi
 		Link:              link,
 		Info:              req.Info,
 	}
+
 	err := srv.storage.AddCheckpoint(ctx, storageCheckpoint)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
 		message := fmt.Sprintf("Could not store checkpoint (%v) in storage", storageCheckpoint)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
+
 	resourcePath := getCheckpointResourcePath(modelID, hyperparametersID, checkpointID)
 	resp := &api.CreateCheckpointResponse{
 		ResourcePath: resourcePath,
 	}
+
 	return resp, nil
 }
 
 func (srv *server) GetCheckpoint(ctx context.Context, req *api.GetCheckpointRequest) (*api.GetCheckpointResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "server.GetCheckpoint")
+	defer span.Finish()
+
+	span.SetTag(trace.ModelID, req.ModelId)
+	span.SetTag(trace.HyperparametersID, req.HyperparametersId)
+	span.SetTag(trace.Marker, req.CheckpointId)
+
 	modelID := req.ModelId
 	hyperparametersID := req.HyperparametersId
 	checkpointID := req.CheckpointId
 	log.Printf("GetCheckpoint request - ModelId: %s, HyperparametersId: %s, CheckpointId: %s", modelID, hyperparametersID, checkpointID)
 	storedCheckpoint, err := srv.storage.GetCheckpoint(ctx, modelID, hyperparametersID, checkpointID)
 	if err != nil {
-		log.Printf("ERROR: %v", err)
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
 		message := fmt.Sprintf("Could not get checkpoint (%s) of hyperparameters (%s) for model (%s) from storage", checkpointID, hyperparametersID, modelID)
 		grpcErr := status.Error(codes.Unavailable, message)
+
 		return nil, grpcErr
 	}
 	resourcePath := getCheckpointResourcePath(modelID, hyperparametersID, checkpointID)
 	createdAt, err := ptypes.TimestampProto(storedCheckpoint.CreatedAt)
 	if err != nil {
-		log.Error("unable to serialize CreatedAt")
-		return nil, err
+		span.SetTag(trace.Error, true)
+		span.LogFields(otlog.Error(err))
+
+		message := "unable to serialize createdAt timestamp"
+		grpcErr := status.Error(codes.Internal, message)
+
+		return nil, grpcErr
 	}
+
 	resp := &api.GetCheckpointResponse{
 		ResourcePath: resourcePath,
 		Link:         storedCheckpoint.Link,
 		CreatedAt:    createdAt,
 		Info:         storedCheckpoint.Info,
 	}
+
 	return resp, nil
 }
 

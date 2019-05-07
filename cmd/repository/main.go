@@ -9,18 +9,59 @@ import (
 	"github.com/doc-ai/tensorio-models/storage"
 	"github.com/doc-ai/tensorio-models/storage/memory"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+	"github.com/opentracing/opentracing-go"
 	log "github.com/sirupsen/logrus"
+	"github.com/uber/jaeger-client-go"
+	"github.com/uber/jaeger-client-go/config"
 	"google.golang.org/grpc"
+	"io"
 	"net"
 	"net/http"
 	"strings"
 )
 
+func initJaeger() (opentracing.Tracer, io.Closer) {
+	log.Println("initializing jaeger")
+	cfg, err := config.FromEnv()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	log.Println("sampler before: ", cfg.Sampler)
+
+	log.Println("throttler", cfg.Throttler)
+
+	log.Println("queue size", cfg.Reporter.QueueSize)
+
+	log.Println(cfg.Reporter)
+
+	cfg.Sampler.Type = "const"
+	cfg.Sampler.Param = 1.0
+
+	//cfg.Reporter.LogSpans = true
+
+	tracer, closer, err := cfg.NewTracer(config.Logger(jaeger.StdLogger))
+	if err != nil {
+		log.Fatalln("jaeger init failed", err)
+	}
+	log.Println(cfg.Sampler)
+	log.Println(tracer, closer)
+
+	return tracer, closer
+}
+
 func startGrpcServer(apiServer api.RepositoryServer) {
 	serverAddress := ":8080"
 	log.Println("Starting grpc on:", serverAddress)
+	tracer, closer := initJaeger()
+	opentracing.SetGlobalTracer(tracer)
+	defer closer.Close()
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(tracer)),
+		grpc.StreamInterceptor(otgrpc.OpenTracingStreamServerInterceptor(tracer)))
+
 	lis, err := net.Listen("tcp", serverAddress)
 	if err != nil {
 		log.Fatalln(err)

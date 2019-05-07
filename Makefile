@@ -13,7 +13,9 @@ docker-build:
 	docker build -t docai/tensorio-models -f dockerfiles/Dockerfile.repository .
 
 run: docker-build
-	docker run -p 8080:8080 -p 8081:8081 docai/tensorio-models ${RUN_ARGS}
+	docker run --env JAEGER_SERVICE_NAME=models --env JAEGER_AGENT_HOST=host.docker.internal -p 8080:8080 -p 8081:8081 docai/tensorio-models ${RUN_ARGS}
+	#docker run --env JAEGER_SERVICE_NAME=models --env JAEGER_AGENT_HOST=host.docker.internal --env JAEGER_REPORTER_LOG_SPANS=true -p 8080:8080 -p 8081:8081 docai/tensorio-models ${RUN_ARGS}
+	#docker run --env JAEGER_SERVICE_NAME=models --env JAEGER_ENDPOINT=http://host.docker.internal:16686/api/traces/ --env JAEGER_REPORTER_LOG_SPANS=true -p 8080:8080 -p 8081:8081 docai/tensorio-models ${RUN_ARGS}
 
 api/repository.pb.go: api/repository.proto
 	cd api && protoc -I . repository.proto --go_out=plugins=grpc:. --proto_path=${GOPATH}/src --proto_path=$(GOPATH)/pkg/mod --proto_path=$(GRPC_GATEWAY_PROTO_DIR)
@@ -35,3 +37,11 @@ coverage: api/repository.pb.go api/repository.pb.gw.go api/repository.swagger.js
 
 coverage-cleanup:
 	rm test.out coverage-*.html
+
+jaeger-start:
+	docker run -d --name jaeger   -e COLLECTOR_ZIPKIN_HTTP_PORT=9411   -p 5775:5775/udp   -p 6831:6831/udp   -p 6832:6832/udp   -p 5778:5778   -p 16686:16686   -p 14268:14268   -p 9411:9411   jaegertracing/all-in-one:1.11
+	echo "Access jaeger at: http://localhost:16686/search"
+
+jaeger-stop:
+	docker kill "/jaeger" ; true
+	docker rm "/jaeger" ; true
